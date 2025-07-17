@@ -1,0 +1,52 @@
+# Entornos y credenciales
+.env
+.env.*
+bot-seguimiento-clientes-24318d7ece5d.json
+
+# Archivos de Google API
+token.json
+credentials.json
+
+# Logs y salidas
+logs/
+*.log
+*.out
+*.err
+nohup.out
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Salidas de build y temporales
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.sqlite3
+
+# Archivos de entorno de Python
+.venv/
+venv/
+ENV/
+env/
+
+# Archivos de VSCode
+.vscode/
+
+# Otros
+.idea/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+*.cover
+*.pid
+*.seed
+*.bak
+*.swp
