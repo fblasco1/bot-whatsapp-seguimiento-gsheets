@@ -1,5 +1,8 @@
-gspread
-google-auth
-python-dotenv
-requests
-python-dateutil
+# Dependencias esenciales para el bot
+gspread==6.2.1
+google-auth==2.40.3
+python-dotenv==1.1.1
+requests==2.32.4
+python-dateutil==2.9.0.post0
+flask==3.0.0
+gunicorn==21.2.0
