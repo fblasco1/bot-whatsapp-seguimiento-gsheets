@@ -7,7 +7,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -w 2 -k gthread -b 0.0.0.0:$PORT webhook_handler:app
     envVars:
-      - fromGroup: whatsapp-bot-env
+      - fromGroup: guiggi-ortiz-bot-env
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: HOST
