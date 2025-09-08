@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime
 from flask import Flask, request, jsonify
-from config import WHATSAPP_VERIFY_TOKEN, ESTADOS_CLIENTE, HOST, PORT
+from config import WHATSAPP_VERIFY_TOKEN, ESTADOS_CLIENTE, HOST, PORT, TASK_SECRET
 from sheets_manager import (
     get_cliente_por_telefono, 
     actualizar_estado_cliente, 
@@ -29,6 +29,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+def _require_task_token(req):
+    """Valida cabecera X-Task-Token para endpoints de tareas programadas."""
+    if not TASK_SECRET:
+        return False
+    token = req.headers.get('X-Task-Token') or req.args.get('token')
+    return token == TASK_SECRET
 
 def procesar_mensaje_entrante(telefono, mensaje, nombre_cliente=None):
     """
@@ -271,3 +278,30 @@ def health_check():
 if __name__ == '__main__':
     logger.info("Iniciando servidor webhook...")
     app.run(host=HOST, port=PORT, debug=False)
+
+@app.route('/tasks/daily', methods=['POST'])
+def run_daily_task():
+    """
+    Endpoint protegido para ejecutar el ciclo diario del bot.
+    Requiere cabecera X-Task-Token = TASK_SECRET.
+    """
+    if not _require_task_token(request):
+        return jsonify({'status': 'forbidden'}), 403
+
+    try:
+        # Ejecutar en segundo plano para responder rápido
+        import threading
+        from main import BotSeguimientoClientes
+
+        def _run():
+            try:
+                bot = BotSeguimientoClientes()
+                bot.ejecutar_ciclo_completo()
+            except Exception as e:
+                logger.error(f"Error en tarea diaria: {str(e)}")
+
+        threading.Thread(target=_run, daemon=True).start()
+        return jsonify({'status': 'started'}), 202
+    except Exception as e:
+        logger.error(f"Error iniciando tarea diaria: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500

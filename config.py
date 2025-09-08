@@ -38,6 +38,11 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'local')
 
 # =============================================================================
+# CONFIGURACIÓN DE TAREAS (ENDPOINTS PROTEGIDOS)
+# =============================================================================
+TASK_SECRET = os.getenv('TASK_SECRET')
+
+# =============================================================================
 # PARÁMETROS DE NEGOCIO
 # =============================================================================
 # Días de seguimiento (ajustado según README: 2, 10, 20, 30, 40)
@@ -53,11 +58,11 @@ TEMPLATES = {
         40: "art_template_40dias"
     },
     "TRANSITO": {
-        2: "transito_template_2dias",
-        10: "transito_template_10dias",
-        20: "transito_template_20dias",
-        30: "transito_template_30dias",
-        40: "transito_template_40dias"
+        2: "dia_2_accidente_transito",
+        10: "accidente_transito_dia10",
+        20: "accidente_transito_dia20",
+        30: "dia_30_acccidente_transito",
+        40: "accidente_transito_dia40"
     }
 }
 

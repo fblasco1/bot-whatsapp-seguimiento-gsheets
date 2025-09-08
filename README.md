@@ -254,20 +254,26 @@ pip install -r requirements.txt
 3. Verifica el endpoint de salud: `GET /health`.
 4. Configura la URL pública en WhatsApp: `https://tu-servicio.onrender.com/webhook`.
 
-### ⏰ Tarea Programada (Cron) en Render
+### ⏰ Ejecución Programada vía Endpoint 
 
-- Se incluye un cron job en `render.yaml` que ejecuta el ciclo del bot todos los días a las **10:00 AM (Argentina, UTC-3)**.
-- Render programa tareas en **UTC**, por eso el cron está configurado a `0 13 * * *` (13:00 UTC = 10:00 AR).
-- El comando ejecutado es: `python -u main.py`.
+- Endpoint seguro: `POST /tasks/daily` con cabecera `X-Task-Token: ${TASK_SECRET}`.
+- Configura `TASK_SECRET` en Render (Environment Group `whatsapp-bot-env`).
+- Usa un scheduler externo (ej. Cloudflare Workers Cron) para llamar al endpoint a las 10:00 AR.
 
-Si deseas cambiar el horario, ajusta la línea en `render.yaml`:
-
+Ejemplo (Cloudflare Workers - TypeScript):
+```ts
+export default {
+  async scheduled(event: ScheduledEvent, env: any, ctx: ExecutionContext) {
+    const url = 'https://tu-servicio.onrender.com/tasks/daily';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-Task-Token': env.TASK_SECRET }
+    });
+    console.log('Status:', res.status);
+  }
+}
 ```
-cronJobs:
-  - name: whatsapp-bot-daily-10am-ar
-    schedule: "0 13 * * *"  # 10:00 AM Argentina (UTC-3)
-    startCommand: python -u main.py
-```
+En Variables del Worker define `TASK_SECRET` con el mismo valor que en Render.
 
 ### **2. Para Producción**
 - Deployar en servidor con dominio HTTPS
@@ -285,11 +291,6 @@ cronJobs:
 ## 🎉 **Resumen**
 
 **Este proyecto está COMPLETO y FUNCIONAL para las necesidades del Estudio Guiggi & Ortiz.**
-
-- ✅ **Todas las funcionalidades core implementadas**
-- ✅ **Sistema probado y funcionando**
-- ✅ **Listo para uso en producción**
-- ✅ **No requiere más desarrollo**
 
 **El bot puede manejar automáticamente:**
 - Seguimiento de clientes en causas civiles

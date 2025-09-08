@@ -7,6 +7,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -w 2 -k gthread -b 0.0.0.0:$PORT webhook_handler:app
     envVars:
+      - fromGroup: whatsapp-bot-env
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: HOST
@@ -15,16 +16,4 @@ services:
         value: "False"
     healthCheckPath: /health
     autoDeploy: true
-
-cronJobs:
-  - name: whatsapp-bot-daily-10am-ar
-    env: python
-    plan: free
-    region: oregon
-    schedule: "0 13 * * *"  # 10:00 AM Argentina (UTC-3)
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -u main.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.13.0
 
