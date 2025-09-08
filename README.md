@@ -252,7 +252,7 @@ pip install -r requirements.txt
 1. Asegúrate de tener los secretos configurados en Render: `GOOGLE_SHEET_ID`, `GOOGLE_CREDENTIALS_FILE`, `WHATSAPP_API_TOKEN`, `WHATSAPP_BUSINESS_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`.
 2. Render detectará `render.yaml` y usará `gunicorn` para levantar `webhook_handler:app`.
 3. Verifica el endpoint de salud: `GET /health`.
-4. Configura la URL pública en WhatsApp: `https://tu-servicio.onrender.com/webhook`.
+4. Configura la URL pública en WhatsApp: `https://whatsapp-bot-guiggi-ortiz.onrender.com/webhook`.
 
 ### ⏰ Ejecución Programada vía Endpoint 
 
