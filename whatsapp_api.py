@@ -6,42 +6,39 @@ from config import WHATSAPP_API_TOKEN, WHATSAPP_BUSINESS_PHONE_NUMBER_ID, CONSEN
 
 WHATSAPP_API_URL = f"https://graph.facebook.com/v23.0/{WHATSAPP_BUSINESS_PHONE_NUMBER_ID}/messages"
 
-# Normaliza un número de teléfono al formato +549XXXXXXXXXX (Argentina)
+# Normaliza un número de teléfono al formato +54XXXXXXXXXX (Argentina)
 def normalizar_numero(telefono):
     """
-    Normaliza un número de teléfono al formato +549XXXXXXXXXX.
-    Elimina espacios, guiones, paréntesis y el '15' si está presente.
+    Normaliza un número de teléfono argentino usando el módulo de códigos de área.
+    Soporta todos los indicativos interurbanos de Argentina.
     """
+    from argentina_phone_codes import normalize_argentina_phone
+    
     phone_number_str = str(telefono)
-    cleaned_number = re.sub(r'[^\d+]', '', phone_number_str)
-
-    # Eliminar el '+' inicial si ya está presente
-    if cleaned_number.startswith('+'):
-        cleaned_number = cleaned_number[1:]
-
-    # Si el número empieza con "549", ya casi está bien
-    if cleaned_number.startswith('549'):
-        if len(cleaned_number) == 12:
-            return "+" + cleaned_number
-        if len(cleaned_number) == 13 and cleaned_number[3:5] == '15':
-            return "+549" + cleaned_number[5:]
-        if len(cleaned_number) > 10:
-            return "+549" + cleaned_number[-10:]
-
-    # Eliminar el "0" inicial si existe
-    if cleaned_number.startswith('0'):
-        cleaned_number = cleaned_number[1:]
-
-    # Eliminar el "15" si existe
-    if cleaned_number.startswith('15'):
-        cleaned_number = cleaned_number[2:]
-
-    # Si quedan 10 dígitos, añadir +549
-    if len(cleaned_number) == 10:
-        return "+549" + cleaned_number
-
-    print(f"Advertencia: Número '{phone_number_str}' no pudo ser normalizado. Resulta: '{cleaned_number}'")
+    
+    # Usar el nuevo módulo de normalización
+    normalized = normalize_argentina_phone(phone_number_str)
+    
+    if normalized:
+        return normalized
+    
+    # Fallback para números que no se pudieron normalizar
+    print(f"Advertencia: Número '{phone_number_str}' no pudo ser normalizado con códigos de área")
     return None
+
+def normalizar_numero_para_busqueda(telefono):
+    """
+    Normaliza un número de teléfono para búsqueda en base de datos.
+    Usa el módulo de códigos de área para generar variantes precisas.
+    """
+    from argentina_phone_codes import get_phone_variants_for_search
+    
+    phone_number_str = str(telefono)
+    
+    # Usar el nuevo módulo para generar variantes
+    variantes = get_phone_variants_for_search(phone_number_str)
+    
+    return variantes
 
 # Enviar mensaje de texto por WhatsApp (DESHABILITADO: solo se permiten plantillas)
 def enviar_mensaje_whatsapp(telefono, mensaje):

@@ -2,9 +2,9 @@
 
 **Desarrollado para Estudio Guiggi & Ortiz** 🏛️
 
-Bot automatizado de WhatsApp para realizar seguimiento de clientes en causas civiles (accidentes de tránsito), enviando mensajes programados en una ventana de 60 días previa a audiencia.
+Bot automatizado de WhatsApp para realizar seguimiento de clientes en causas civiles (accidentes de tránsito), enviando mensajes programados en una ventana de 40 días previa a audiencia.
 
-## 🎯 Funcionalidades Core Implementadas
+## 🎯 Resumen de Funcionalidades
 
 ### ✅ **Sistema Completo y Funcional**
 - **Sistema de Consentimiento**: Solicitud inicial y gestión de respuestas
@@ -77,6 +77,96 @@ WHATSAPP_VERIFY_TOKEN=token_personalizado_para_webhook
 
 
 ```
+
+## 🧑‍💻 Configuración del Usuario (Guía en Español)
+
+Sigue estos pasos para dejar el bot funcionando con tus credenciales y entorno:
+
+### 1) Crear archivo `.env`
+- Copia `config.env.example` a `.env`.
+- Edita los valores con tus credenciales reales (Google y WhatsApp).
+
+Campos mínimos obligatorios:
+```env
+GOOGLE_SHEET_ID=...               # ID de tu Google Sheet (se ve en la URL)
+GOOGLE_CREDENTIALS_FILE=...       # Nombre del JSON de servicio (colócalo en la raíz)
+WHATSAPP_API_TOKEN=...            # Token de WhatsApp Business API
+WHATSAPP_BUSINESS_PHONE_NUMBER_ID=...  # Phone Number ID de Meta
+WHATSAPP_VERIFY_TOKEN=...         # Texto que usarás para verificar el webhook
+```
+
+Opcionales útiles:
+```env
+PORT=5000
+HOST=0.0.0.0
+DEBUG=True                        # True en desarrollo, False en producción
+ENVIRONMENT=local                 # o production
+LOG_LEVEL=INFO
+TASK_SECRET=cambia_este_token_seguro # Protege endpoints internos como /tasks/daily
+```
+
+### 2) Preparar Google Cloud y la Hoja
+- Crea un Service Account con acceso a Google Sheets.
+- Descarga el JSON y guárdalo con el nombre indicado en `GOOGLE_CREDENTIALS_FILE`.
+- Comparte tu Google Sheet con el email del Service Account (Editor).
+- Si no tienes la estructura, ejecútala automáticamente:
+```bash
+python setup_database.py
+```
+
+### 3) Configurar WhatsApp Business API
+- Obtén el `WHATSAPP_API_TOKEN` y el `WHATSAPP_BUSINESS_PHONE_NUMBER_ID` desde Meta.
+- Define `WHATSAPP_VERIFY_TOKEN` (cualquier string) para la verificación del webhook.
+- Asegúrate de tener plantillas aprobadas si usas mensajes templated.
+
+### 4) Verificar configuración local
+```bash
+python validate_config.py
+```
+Soluciona cualquier variable faltante o archivo no encontrado.
+
+### 5) Correr localmente
+```bash
+python server.py
+```
+Usa herramientas como `ngrok` para exponer el webhook durante pruebas si lo necesitas.
+
+### 6) Webhook (producción)
+1. Despliega en Render.
+2. Configura en WhatsApp el webhook a `https://<tu-app>.onrender.com/webhook`.
+3. Usa el mismo `WHATSAPP_VERIFY_TOKEN` que definiste en `.env`.
+
+### 7) Formato de Números de Teléfono
+
+**📱 El bot maneja automáticamente TODOS los indicativos interurbanos de Argentina:**
+
+El estudio puede cargar números en cualquier formato y el bot los encontrará automáticamente:
+
+- `1166537925` (formato local Buenos Aires)
+- `91166537925` (móvil Buenos Aires)  
+- `5491166537925` (formato WhatsApp completo)
+- `2611234567` (Mendoza)
+- `3511234567` (Córdoba)
+- `+54 9 11 6653-7925` (con espacios y guiones)
+
+**✅ Solución completa al problema de "Cliente no encontrado":**
+- **296 códigos de área soportados** de toda Argentina
+- Búsqueda inteligente con múltiples variantes del número
+- Maneja códigos de área de 2, 3 y 4 dígitos
+- Soporta números con prefijos 0, 15, 54, +54
+- Funciona con espacios, guiones y otros caracteres especiales
+- **Cobertura nacional completa**: Buenos Aires, Córdoba, Mendoza, Santa Fe, Tucumán, Salta, Río Negro, Tierra del Fuego, y todas las provincias
+
+**🗺️ Códigos de área incluidos:**
+- Buenos Aires: 11, 220-249 (AMBA e interior)
+- Córdoba: 351, 3521-3585
+- Mendoza: 260-2627
+- Santa Fe: 3400-3495
+- Tucumán: 381
+- Salta: 387-3892
+- Río Negro: 2920-298
+- Tierra del Fuego: 2964
+- Y todos los demás códigos interurbanos de Argentina
 
 ### **3. Configurar Base de Datos**
 ```bash
@@ -302,4 +392,6 @@ En Variables del Worker define `TASK_SECRET` con el mismo valor que en Render.
 ---
 
 **¡El proyecto está listo para usar! 🚀**
+
+---
 

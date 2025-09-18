@@ -27,19 +27,55 @@ def get_clientes():
 
 # Obtener cliente por número de teléfono
 def get_cliente_por_telefono(telefono):
+    """
+    Busca un cliente por número de teléfono usando múltiples variantes de normalización.
+    Maneja diferentes formatos: 5491166537925, 91166537925, 1166537925, etc.
+    """
+    from whatsapp_api import normalizar_numero_para_busqueda
+    
     gc = get_gspread_client()
     sh = gc.open_by_key(GOOGLE_SHEET_ID)
     worksheet = sh.worksheet(SHEET_NAME)
     
-    # Buscar en la columna B (teléfono)
+    # Obtener variantes del número para búsqueda
+    variantes = normalizar_numero_para_busqueda(telefono)
+    
+    # Buscar cada variante en la columna B (teléfono)
+    for variante in variantes:
+        try:
+            cell = worksheet.find(variante)
+            if cell:
+                row = cell.row
+                cliente_data = worksheet.row_values(row)
+                print(f"Cliente encontrado con variante '{variante}' para teléfono original '{telefono}'")
+                return cliente_data, row
+        except gspread.exceptions.CellNotFound:
+            continue
+    
+    # Si no se encuentra con ninguna variante, intentar búsqueda más flexible
     try:
-        cell = worksheet.find(str(telefono))
-        if cell:
-            row = cell.row
-            cliente_data = worksheet.row_values(row)
-            return cliente_data, row
-    except gspread.exceptions.CellNotFound:
-        return None, None
+        # Obtener todos los números de teléfono de la columna B
+        telefonos_column = worksheet.col_values(2)  # Columna B
+        
+        for idx, telefono_en_sheet in enumerate(telefonos_column[1:], start=2):  # Saltar header
+            if not telefono_en_sheet:
+                continue
+                
+            # Generar variantes del número en la hoja
+            variantes_sheet = normalizar_numero_para_busqueda(telefono_en_sheet)
+            
+            # Verificar si alguna variante coincide
+            for variante_original in variantes:
+                for variante_sheet in variantes_sheet:
+                    if variante_original == variante_sheet:
+                        cliente_data = worksheet.row_values(idx)
+                        print(f"Cliente encontrado con coincidencia flexible: '{telefono_en_sheet}' (sheet) = '{telefono}' (original)")
+                        return cliente_data, idx
+                        
+    except Exception as e:
+        print(f"Error en búsqueda flexible: {str(e)}")
+    
+    print(f"Cliente no encontrado para teléfono: {telefono} (variantes probadas: {variantes})")
     return None, None
 
 # Actualizar estado del cliente
