@@ -384,69 +384,99 @@ def get_all_area_codes():
 
 def normalize_argentina_phone(phone_number):
     """
-    Normaliza un número de teléfono argentino al formato +54XXXXXXXXXX
+    Normaliza un número de teléfono argentino al formato E.164 estándar (+54XXXXXXXXXX)
+    Basado en la documentación oficial de Sent.dm y especificaciones ENACOM.
+    
+    Reglas E.164 para Argentina:
+    - Código de país: +54
+    - Código de área: 2-4 dígitos
+    - Número local: 6-8 dígitos
+    - Total: Siempre 10 dígitos (excluyendo +54)
+    - Móviles: +54 9 XX XXXXXXXXX (el 9 es obligatorio)
+    - Fijos: +54 XX XXXXXXXXX (sin el 9)
     
     Args:
         phone_number (str): Número de teléfono en cualquier formato
     
     Returns:
-        str: Número normalizado o None si no es válido
+        str: Número normalizado en formato E.164 o None si no es válido
     """
     import re
     
-    # Limpiar el número
+    # Limpiar el número (mantener solo dígitos y +)
     cleaned = re.sub(r'[^\d+]', '', str(phone_number))
     
     # Remover el + inicial si existe
     if cleaned.startswith('+'):
         cleaned = cleaned[1:]
     
-    # Remover 0 inicial si existe
+    # Remover 0 inicial si existe (trunk code nacional)
     if cleaned.startswith('0'):
         cleaned = cleaned[1:]
     
-    # Remover 15 inicial si existe (para móviles)
+    # Remover 15 inicial si existe (prefijo móvil obsoleto)
     if cleaned.startswith('15'):
         cleaned = cleaned[2:]
     
     # Si ya tiene el prefijo 54, procesar
     if cleaned.startswith('54'):
-        # Remover el 54 inicial
         without_country = cleaned[2:]
         
-        # Caso especial: números que empiezan con 9 después del 54 (móviles)
-        if without_country.startswith('9') and len(without_country) == 11:
-            # Asumir que es un móvil de Buenos Aires (código 11)
-            return f"+5411{without_country[1:]}"
+        # Validar que tenga 10 o 11 dígitos (regla E.164 con casos especiales)
+        if len(without_country) not in [10, 11]:
+            return None
         
-        # Buscar códigos de área válidos
+        # Casos especiales para números especiales
+        if without_country.startswith('800'):
+            # Toll-free: +54 800 XXXXXXX
+            return f"+54{without_country}"
+        elif without_country.startswith('600'):
+            # Premium: +54 600 XXXXXXX
+            return f"+54{without_country}"
+        
+        # Números móviles: empiezan con 9
+        if without_country.startswith('9'):
+            # Formato móvil: 9 + código de área (2-4 dígitos) + número local (6-8 dígitos)
+            # Total: 10 dígitos
+            if len(without_country) == 10:
+                return f"+54{without_country}"
+            elif len(without_country) == 11:
+                # Caso especial: números con 11 dígitos (9 + código de área + número local)
+                # Ejemplo: 91153770592 -> +541153770592 (quitar el 9)
+                return f"+54{without_country[1:]}"
+        
+        # Números fijos: no empiezan con 9
+        # Verificar que el código de área sea válido
         for area_code in sorted(ARGENTINA_AREA_CODES.keys(), key=len, reverse=True):
             if without_country.startswith(area_code):
-                # Verificar que el número tenga la longitud correcta
                 remaining_digits = without_country[len(area_code):]
                 
-                # Para códigos de área de 2 dígitos (como 11), el número debe tener 8 dígitos
-                # Para códigos de área de 3-4 dígitos, el número debe tener 6-7 dígitos
+                # Validar longitud según código de área
                 if len(area_code) == 2 and len(remaining_digits) == 8:
                     return f"+54{area_code}{remaining_digits}"
-                elif len(area_code) >= 3 and len(remaining_digits) >= 6:
+                elif len(area_code) == 3 and len(remaining_digits) == 7:
+                    return f"+54{area_code}{remaining_digits}"
+                elif len(area_code) == 4 and len(remaining_digits) == 6:
                     return f"+54{area_code}{remaining_digits}"
     
     # Si no tiene prefijo 54, intentar detectar código de área
-    for area_code in sorted(ARGENTINA_AREA_CODES.keys(), key=len, reverse=True):
-        if cleaned.startswith(area_code):
-            remaining_digits = cleaned[len(area_code):]
-            
-            # Verificar longitud
-            if len(area_code) == 2 and len(remaining_digits) == 8:
-                return f"+54{area_code}{remaining_digits}"
-            elif len(area_code) >= 3 and len(remaining_digits) >= 6:
-                return f"+54{area_code}{remaining_digits}"
+    if len(cleaned) == 10:
+        # Números fijos sin prefijo 54
+        for area_code in sorted(ARGENTINA_AREA_CODES.keys(), key=len, reverse=True):
+            if cleaned.startswith(area_code):
+                remaining_digits = cleaned[len(area_code):]
+                
+                # Validar longitud según código de área
+                if len(area_code) == 2 and len(remaining_digits) == 8:
+                    return f"+54{area_code}{remaining_digits}"
+                elif len(area_code) == 3 and len(remaining_digits) == 7:
+                    return f"+54{area_code}{remaining_digits}"
+                elif len(area_code) == 4 and len(remaining_digits) == 6:
+                    return f"+54{area_code}{remaining_digits}"
     
-    # Caso especial: números que empiezan con 9 (móviles de Buenos Aires)
-    if cleaned.startswith('9') and len(cleaned) == 11:
-        # Asumir que es un móvil de Buenos Aires (código 11)
-        return f"+5411{cleaned[1:]}"
+    elif len(cleaned) == 11 and cleaned.startswith('9'):
+        # Números móviles sin prefijo 54
+        return f"+54{cleaned}"
     
     return None
 
@@ -479,9 +509,9 @@ def get_phone_variants_for_search(phone_number):
     # Variante 3: Solo código de área + número local
     # Caso especial: números que empiezan con 549 (móviles de Buenos Aires)
     if cleaned.startswith('549') and len(cleaned) == 13:
-        variants.append(cleaned[2:])  # Sin 54: 91166537925
-        variants.append(cleaned[3:])  # Sin 549: 1166537925
-        variants.append(cleaned[5:])  # Solo número local: 66537925
+        variants.append(cleaned[2:])  # Sin 54: 91153770592
+        variants.append(cleaned[3:])  # Sin 549: 1153770592
+        variants.append(cleaned[5:])  # Solo número local: 53770592
     else:
         for area_code in sorted(ARGENTINA_AREA_CODES.keys(), key=len, reverse=True):
             if cleaned.startswith(f"54{area_code}"):
@@ -509,3 +539,178 @@ def get_phone_variants_for_search(phone_number):
     variants = list(set([v for v in variants if v and len(v) >= 6]))
     
     return variants
+
+def validate_argentina_phone_e164(phone_number):
+    """
+    Valida un número de teléfono argentino según estándares E.164 y ENACOM
+    Basado en la documentación oficial de Sent.dm
+    
+    Args:
+        phone_number (str): Número de teléfono a validar
+    
+    Returns:
+        dict: Resultado de validación con detalles
+    """
+    import re
+    
+    result = {
+        'is_valid': False,
+        'type': None,
+        'normalized': None,
+        'error': None
+    }
+    
+    # Limpiar el número
+    cleaned = re.sub(r'[^\d+]', '', str(phone_number))
+    
+    # Verificar formato básico
+    if not cleaned.startswith('+54') and not cleaned.startswith('54'):
+        result['error'] = 'No es un número argentino (falta código de país +54)'
+        return result
+    
+    # Normalizar
+    normalized = normalize_argentina_phone(phone_number)
+    if not normalized:
+        result['error'] = 'No se pudo normalizar el número'
+        return result
+    
+    result['normalized'] = normalized
+    
+    # Extraer componentes
+    without_country = normalized[3:]  # Quitar +54
+    
+    # Determinar tipo de número
+    if without_country.startswith('800'):
+        result['type'] = 'toll_free'
+        result['is_valid'] = len(without_country) == 10
+    elif without_country.startswith('600'):
+        result['type'] = 'premium'
+        result['is_valid'] = len(without_country) == 10
+    elif without_country.startswith('9'):
+        result['type'] = 'mobile'
+        result['is_valid'] = len(without_country) == 10
+    else:
+        # Verificar si es un número móvil que fue normalizado (quitando el 9)
+        # Si el número original tenía 11 dígitos y empezaba con 9, es móvil
+        original_cleaned = re.sub(r'[^\d+]', '', str(phone_number))
+        if original_cleaned.startswith('+'):
+            original_cleaned = original_cleaned[1:]
+        if original_cleaned.startswith('54'):
+            original_without_country = original_cleaned[2:]
+            if len(original_without_country) == 11 and original_without_country.startswith('9'):
+                result['type'] = 'mobile'
+            else:
+                result['type'] = 'landline'
+        else:
+            result['type'] = 'landline'
+        result['is_valid'] = len(without_country) == 10
+    
+    if not result['is_valid']:
+        result['error'] = f'Longitud incorrecta para tipo {result["type"]}'
+    
+    return result
+
+def format_argentina_phone_display(phone_number, format_type='local'):
+    """
+    Formatea un número argentino para visualización local
+    Basado en la documentación oficial de Sent.dm
+    
+    Args:
+        phone_number (str): Número en formato E.164
+        format_type (str): 'local', 'international', 'mobile'
+    
+    Returns:
+        str: Número formateado para visualización
+    """
+    if not phone_number or not phone_number.startswith('+54'):
+        return phone_number
+    
+    without_country = phone_number[3:]  # Quitar +54
+    
+    if format_type == 'local':
+        if without_country.startswith('9'):
+            # Móvil: 9 XX XXXX-XXXX
+            if len(without_country) == 10:
+                return f"9 {without_country[1:3]} {without_country[3:7]}-{without_country[7:]}"
+        elif without_country.startswith('800'):
+            # Toll-free: 800 XXX-XXXX
+            return f"800 {without_country[3:6]}-{without_country[6:]}"
+        elif without_country.startswith('600'):
+            # Premium: 600 XXX-XXXX
+            return f"600 {without_country[3:6]}-{without_country[6:]}"
+        else:
+            # Fijo: XX XXXX-XXXX
+            if len(without_country) == 10:
+                return f"{without_country[:2]} {without_country[2:6]}-{without_country[6:]}"
+    
+    elif format_type == 'international':
+        # +54 9 XX XXXX-XXXX o +54 XX XXXX-XXXX
+        if without_country.startswith('9'):
+            return f"+54 9 {without_country[1:3]} {without_country[3:7]}-{without_country[7:]}"
+        else:
+            return f"+54 {without_country[:2]} {without_country[2:6]}-{without_country[6:]}"
+    
+    return phone_number
+
+def get_phone_type_info(phone_number):
+    """
+    Obtiene información detallada sobre el tipo de número argentino
+    Basado en la documentación oficial de Sent.dm
+    
+    Args:
+        phone_number (str): Número de teléfono
+    
+    Returns:
+        dict: Información del tipo de número
+    """
+    validation = validate_argentina_phone_e164(phone_number)
+    
+    if not validation['is_valid']:
+        return {'error': validation['error']}
+    
+    without_country = validation['normalized'][3:]  # Quitar +54
+    
+    info = {
+        'type': validation['type'],
+        'normalized': validation['normalized'],
+        'area_code': None,
+        'local_number': None,
+        'is_mobile': False,
+        'is_toll_free': False,
+        'is_premium': False,
+        'is_landline': False
+    }
+    
+    if validation['type'] == 'mobile':
+        info['is_mobile'] = True
+        # Para números móviles normalizados, el código de área está en las primeras posiciones
+        # Determinar código de área (2-4 dígitos)
+        for area_code in sorted(ARGENTINA_AREA_CODES.keys(), key=len, reverse=True):
+            if without_country.startswith(area_code):
+                info['area_code'] = area_code
+                info['local_number'] = without_country[len(area_code):]
+                break
+    elif validation['type'] == 'toll_free':
+        info['is_toll_free'] = True
+        info['area_code'] = '800'
+        info['local_number'] = without_country[3:]
+    elif validation['type'] == 'premium':
+        info['is_premium'] = True
+        info['area_code'] = '600'
+        info['local_number'] = without_country[3:]
+    else:  # landline
+        info['is_landline'] = True
+        # Determinar código de área (2-4 dígitos)
+        for area_code in sorted(ARGENTINA_AREA_CODES.keys(), key=len, reverse=True):
+            if without_country.startswith(area_code):
+                info['area_code'] = area_code
+                info['local_number'] = without_country[len(area_code):]
+                break
+    
+    # Agregar información de ubicación si es posible
+    if info['area_code'] and info['area_code'] in ARGENTINA_AREA_CODES:
+        location_info = ARGENTINA_AREA_CODES[info['area_code']]
+        info['province'] = location_info[0]
+        info['city'] = location_info[1]
+    
+    return info

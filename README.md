@@ -151,10 +151,13 @@ El estudio puede cargar números en cualquier formato y el bot los encontrará a
 
 **✅ Solución completa al problema de "Cliente no encontrado":**
 - **296 códigos de área soportados** de toda Argentina
+- **Validación E.164 completa** según estándares internacionales
+- **Cumplimiento con especificaciones ENACOM** y documentación oficial de Sent.dm
 - Búsqueda inteligente con múltiples variantes del número
 - Maneja códigos de área de 2, 3 y 4 dígitos
 - Soporta números con prefijos 0, 15, 54, +54
 - Funciona con espacios, guiones y otros caracteres especiales
+- **Soporte para números especiales**: toll-free (800), premium (600)
 - **Cobertura nacional completa**: Buenos Aires, Córdoba, Mendoza, Santa Fe, Tucumán, Salta, Río Negro, Tierra del Fuego, y todas las provincias
 
 **🗺️ Códigos de área incluidos:**
