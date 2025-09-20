@@ -79,12 +79,15 @@ def procesar_consentimiento(telefono, mensaje, nombre, row):
     if respuesta == "SI":
         # Cliente acepta consentimiento
         actualizar_consentimiento_cliente(row, "SI")
-        actualizar_estado_cliente(row, ESTADOS_CLIENTE["CONSENTIMIENTO_OTORGADO"])
+        actualizar_estado_cliente(row, ESTADOS_CLIENTE["ACTIVO"])
         registrar_mensaje_enviado(row, "consentimiento_aceptado")
         
-        # Enviar confirmación
-        enviar_confirmacion_consentimiento(telefono, nombre)
-        logger.info(f"Consentimiento aceptado para {nombre} ({telefono})")
+        # Enviar confirmación de bienvenida
+        if enviar_confirmacion_consentimiento(telefono, nombre):
+            logger.info(f"Mensaje de bienvenida enviado a {nombre} ({telefono})")
+        else:
+            logger.error(f"Error enviando mensaje de bienvenida a {nombre} ({telefono})")
+        logger.info(f"Consentimiento aceptado para {nombre} ({telefono}) - Cliente activado")
         return True
     
     elif respuesta == "NO":

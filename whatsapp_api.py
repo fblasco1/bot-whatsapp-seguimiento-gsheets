@@ -120,6 +120,7 @@ def enviar_consentimiento_inicial(telefono, nombre_cliente):
 # Enviar mensaje de confirmación de consentimiento (template)
 def enviar_confirmacion_consentimiento(telefono, nombre_cliente):
     template_name = CONSENT_TEMPLATES.get("consentimiento_confirmado")
+    print(f"Enviando confirmación de consentimiento a {telefono} con template: {template_name}")
     return enviar_mensaje_template(telefono, template_name, components=[nombre_cliente])
 
 # Enviar mensaje de derivación a humano (template)
