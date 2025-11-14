@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from datetime import datetime
 from flask import Flask, request, jsonify
 from config import WHATSAPP_VERIFY_TOKEN, ESTADOS_CLIENTE, HOST, PORT, TASK_SECRET
@@ -216,6 +217,7 @@ def verify_webhook():
 def handle_webhook():
     """
     Maneja los mensajes entrantes de WhatsApp
+    Responde inmediatamente y procesa en background para evitar timeouts de Cloudflare
     """
     try:
         data = request.get_json()
@@ -225,46 +227,55 @@ def handle_webhook():
         if 'object' not in data or data['object'] != 'whatsapp_business_account':
             return jsonify({'status': 'ignored'}), 200
         
-        # Procesar cada entrada
-        for entry in data.get('entry', []):
-            for change in entry.get('changes', []):
-                if change.get('value', {}).get('messages'):
-                    for message in change['value']['messages']:
-                        mtype = message.get('type')
-                        telefono = message.get('from')
-                        logger.info(f"Mensaje entrante tipo={mtype} desde {telefono}")
+        # Procesar cada entrada en background para responder rápidamente
+        def procesar_mensajes_background():
+            try:
+                for entry in data.get('entry', []):
+                    for change in entry.get('changes', []):
+                        if change.get('value', {}).get('messages'):
+                            for message in change['value']['messages']:
+                                mtype = message.get('type')
+                                telefono = message.get('from')
+                                logger.info(f"Mensaje entrante tipo={mtype} desde {telefono}")
 
-                        if mtype == 'text':
-                            mensaje = message['text']['body']
-                            procesar_mensaje_entrante(telefono, mensaje)
-                        elif mtype == 'button':
-                            # Respuesta a botones 'reply button'
-                            btn = message.get('button', {})
-                            # Preferir 'text'; fallback a 'payload' si existiera
-                            mensaje = btn.get('text') or btn.get('payload') or ''
-                            if mensaje:
-                                procesar_mensaje_entrante(telefono, mensaje)
-                        elif mtype == 'interactive':
-                            inter = message.get('interactive', {})
-                            itype = inter.get('type')
-                            if itype == 'button_reply':
-                                btn = inter.get('button_reply', {})
-                                # Usar el título visible del botón
-                                mensaje = btn.get('title') or btn.get('id') or ''
-                                if mensaje:
+                                if mtype == 'text':
+                                    mensaje = message['text']['body']
                                     procesar_mensaje_entrante(telefono, mensaje)
-                            elif itype == 'list_reply':
-                                rep = inter.get('list_reply', {})
-                                mensaje = rep.get('title') or rep.get('id') or ''
-                                if mensaje:
-                                    procesar_mensaje_entrante(telefono, mensaje)
-                        else:
-                            logger.info(f"Tipo de mensaje no manejado: {mtype}")
+                                elif mtype == 'button':
+                                    # Respuesta a botones 'reply button'
+                                    btn = message.get('button', {})
+                                    # Preferir 'text'; fallback a 'payload' si existiera
+                                    mensaje = btn.get('text') or btn.get('payload') or ''
+                                    if mensaje:
+                                        procesar_mensaje_entrante(telefono, mensaje)
+                                elif mtype == 'interactive':
+                                    inter = message.get('interactive', {})
+                                    itype = inter.get('type')
+                                    if itype == 'button_reply':
+                                        btn = inter.get('button_reply', {})
+                                        # Usar el título visible del botón
+                                        mensaje = btn.get('title') or btn.get('id') or ''
+                                        if mensaje:
+                                            procesar_mensaje_entrante(telefono, mensaje)
+                                    elif itype == 'list_reply':
+                                        rep = inter.get('list_reply', {})
+                                        mensaje = rep.get('title') or rep.get('id') or ''
+                                        if mensaje:
+                                            procesar_mensaje_entrante(telefono, mensaje)
+                                else:
+                                    logger.info(f"Tipo de mensaje no manejado: {mtype}")
+            except Exception as e:
+                logger.error(f"Error procesando mensajes en background: {str(e)}")
         
-        return jsonify({'status': 'success'}), 200
+        # Iniciar procesamiento en background y responder inmediatamente
+        threading.Thread(target=procesar_mensajes_background, daemon=True).start()
+        
+        # Responder inmediatamente para evitar timeouts de Cloudflare
+        return jsonify({'status': 'accepted'}), 202
     
     except Exception as e:
         logger.error(f"Error procesando webhook: {str(e)}")
+        # Aún así responder rápidamente con error
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
@@ -287,24 +298,36 @@ def run_daily_task():
     """
     Endpoint protegido para ejecutar el ciclo diario del bot.
     Requiere cabecera X-Task-Token = TASK_SECRET.
+    Responde inmediatamente para evitar timeouts de Cloudflare Workers.
     """
     if not _require_task_token(request):
+        logger.warning("Intento de acceso a /tasks/daily sin token válido")
         return jsonify({'status': 'forbidden'}), 403
 
     try:
-        # Ejecutar en segundo plano para responder rápido
-        import threading
+        # Ejecutar en segundo plano para responder inmediatamente
+        # Esto evita timeouts de Cloudflare (timeout de 100s en plan free)
+        # Importante: responder rápido para evitar error 524
         from main import BotSeguimientoClientes
 
         def _run():
             try:
+                logger.info("Iniciando tarea diaria en background")
                 bot = BotSeguimientoClientes()
                 bot.ejecutar_ciclo_completo()
+                logger.info("Tarea diaria completada exitosamente")
             except Exception as e:
-                logger.error(f"Error en tarea diaria: {str(e)}")
+                logger.error(f"Error en tarea diaria: {str(e)}", exc_info=True)
 
-        threading.Thread(target=_run, daemon=True).start()
-        return jsonify({'status': 'started'}), 202
+        # Iniciar thread en background y responder inmediatamente
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+        
+        logger.info("Tarea diaria iniciada en background, respondiendo 202")
+        return jsonify({
+            'status': 'started',
+            'message': 'Tarea diaria iniciada en background'
+        }), 202
     except Exception as e:
-        logger.error(f"Error iniciando tarea diaria: {str(e)}")
+        logger.error(f"Error iniciando tarea diaria: {str(e)}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500

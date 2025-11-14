@@ -2,7 +2,15 @@
 import requests
 import re
 import json
-from config import WHATSAPP_API_TOKEN, WHATSAPP_BUSINESS_PHONE_NUMBER_ID, CONSENT_TEMPLATES, TELEFONO_ABOGADO, WHATSAPP_TEMPLATE_LANGUAGE
+from requests.exceptions import Timeout, RequestException
+from config import (
+    WHATSAPP_API_TOKEN, 
+    WHATSAPP_BUSINESS_PHONE_NUMBER_ID, 
+    CONSENT_TEMPLATES, 
+    TELEFONO_ABOGADO, 
+    WHATSAPP_TEMPLATE_LANGUAGE,
+    WHATSAPP_API_TIMEOUT
+)
 
 WHATSAPP_API_URL = f"https://graph.facebook.com/v23.0/{WHATSAPP_BUSINESS_PHONE_NUMBER_ID}/messages"
 
@@ -101,13 +109,26 @@ def enviar_mensaje_template(telefono, template_id, language_code=None, component
 
     try:
         print(f"Enviando template='{template_id}' language='{language_code}' to='{telefono_normalizado}'")
-        response = requests.post(WHATSAPP_API_URL, json=data, headers=headers)
+        # Usar timeout configurado para evitar que se quede colgado indefinidamente
+        timeout = WHATSAPP_API_TIMEOUT if WHATSAPP_API_TIMEOUT else 30
+        response = requests.post(
+            WHATSAPP_API_URL, 
+            json=data, 
+            headers=headers,
+            timeout=timeout
+        )
         if response.status_code == 200:
             print(f"Template {template_id} enviado a {telefono_normalizado}")
             return True
         else:
             print(f"Error enviando template {template_id} a {telefono_normalizado}: {response.text}")
             return False
+    except Timeout:
+        print(f"Timeout enviando template {template_id} a {telefono_normalizado} (timeout={timeout}s)")
+        return False
+    except RequestException as e:
+        print(f"Error de conexión enviando template {template_id} a {telefono_normalizado}: {str(e)}")
+        return False
     except Exception as e:
         print(f"Excepción enviando template {template_id} a {telefono_normalizado}: {str(e)}")
         return False
